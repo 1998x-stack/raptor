@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RAPTOR — Tree-Organized Retrieval for LLMs</title>
+<meta name="description" content="RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval. A Python library that builds hierarchical summary trees for long-document question answering.">
+<link rel="stylesheet" href="base-dark.css">
+<style>
+/* ── Semantic colors ── */
+:root {
+  --c1:  #E8A838;
+  --c1d: #8B6914;
+  --c2:  #2EADAB;
+  --c2d: #1A7A78;
+  --c3:  #8559C2;
+  --c3d: #5A3A8A;
+}
+
+.hero h1 em {
+  background: linear-gradient(105deg, var(--c1), var(--c2) 55%, var(--c3));
+}
+.hero h1 .fn-word {
+  font-family: var(--mono);
+  font-size: .6em;
+  vertical-align: .2em;
+  -webkit-text-fill-color: var(--muted);
+}
+
+/* ── Stats row ── */
+.stats-row { display: flex; gap: 28px; margin-top: 8px; }
+.stat { text-align: center; }
+.stat-val { font-size: 22px; font-weight: 700; color: var(--c1); }
+.stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+
+/* ── Tree visualization ── */
+.tree-vis {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 20px; padding: 24px 0 8px; font-size: 12px;
+}
+.tree-row { display: flex; gap: 8px; align-items: center; }
+.tree-node {
+  padding: 8px 14px; border-radius: 8px; border: 1px solid;
+  text-align: center; font-family: var(--mono); font-size: 11px;
+  line-height: 1.5; transition: all .2s;
+}
+.tree-node.l0 { border-color: var(--c2d); background: rgba(46,173,171,.08); color: var(--c2); }
+.tree-node.l1 { border-color: var(--c1d); background: rgba(232,168,56,.08); color: var(--c1); }
+.tree-node.l2 { border-color: var(--c3d); background: rgba(133,89,194,.08); color: var(--c3); }
+.tree-node:hover { filter: brightness(1.4); }
+.tree-connector { color: var(--faint); font-size: 16px; }
+
+/* ── File tree ── */
+.file-tree {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px 22px;
+  font-family: var(--mono); font-size: 12px; line-height: 2;
+  overflow-x: auto; white-space: pre; color: var(--code-text);
+}
+.file-tree .dir { color: var(--c2); }
+.file-tree .py  { color: var(--c1); }
+.file-tree .cfg { color: var(--c3); }
+.file-tree .cmt { color: #8b949e; }
+
+/* ── Benchmark highlight ── */
+.bench-highlight { color: var(--c1); font-weight: 700; }
+
+/* ── Installation code ── */
+.install-block {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 20px;
+  font-family: var(--mono); font-size: 13px; color: var(--code-text);
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.install-block .prompt { color: var(--c2); user-select: none; }
+.copy-btn {
+  margin-left: auto; padding: 4px 12px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg3);
+  color: var(--muted); font-size: 11px; font-family: var(--font);
+  cursor: pointer; transition: all .15s;
+}
+.copy-btn:hover { border-color: var(--border2); color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav>
+  <div class="nav-inner">
+    <span class="nav-brand">RAPTOR <span>v0.1.0</span></span>
+    <a class="nl" href="#what">What</a>
+    <a class="nl" href="#builders">Builders</a>
+    <a class="nl" href="#structure">Structure</a>
+    <a class="nl" href="#usage">Usage</a>
+    <a class="nl" href="#benchmarks">Benchmarks</a>
+  </div>
+</nav>
+
+<div class="page">
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-badge"><span class="dot"></span> ICLR 2024 · Research Paper</div>
+  <h1>Recursive Abstractive Processing for <em>Tree-Organized Retrieval</em></h1>
+  <p>
+    A Python library that builds hierarchical summary trees over long documents,
+    enabling LLMs to answer thematic, multi-hop, and detail-oriented questions
+    with state-of-the-art accuracy.
+  </p>
+  <div class="tag-row">
+    <span class="ltag" style="color:var(--c1);border-color:var(--c1d);background:rgba(232,168,56,.08)">Python 3.10+</span>
+    <span class="ltag" style="color:var(--c2);border-color:var(--c2d);background:rgba(46,173,171,.08)">RAG</span>
+    <span class="ltag" style="color:var(--c3);border-color:var(--c3d);background:rgba(133,89,194,.08)">Clustering</span>
+    <span class="ltag" style="color:var(--muted);border-color:var(--border2);background:var(--bg2)">LLM</span>
+    <span class="ltag" style="color:var(--muted);border-color:var(--border2);background:var(--bg2)">Tree</span>
+  </div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-val">1.6k</div><div class="stat-lbl">Lines of Python</div></div>
+    <div class="stat"><div class="stat-val">12</div><div class="stat-lbl">Modules</div></div>
+    <div class="stat"><div class="stat-val">2</div><div class="stat-lbl">Build Strategies</div></div>
+    <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Lint Warnings</div></div>
+  </div>
+</section>
+
+<!-- ═══ FLOW ═══ -->
+<section class="flow" id="what">
+  <div class="sec-label">Pipeline Overview</div>
+  <div class="flow-track">
+    <div class="flow-box">
+      <div class="fb-tag" style="color:var(--c2)">1 · CHUNK</div>
+      <div class="fb-name">Embed Documents</div>
+      <div class="fb-sub">Split long text into chunks, generate dense vector embeddings for each.</div>
+      <div class="fb-file">raptor/embedding.py</div>
+    </div>
+    <div class="flow-arrow"><span class="arr-icon">→</span><span class="arr-text">vectors</span></div>
+    <div class="flow-box">
+      <div class="fb-tag" style="color:var(--c3)">2 · CLUSTER</div>
+      <div class="fb-name">Group &amp; Reduce</div>
+      <div class="fb-sub">UMAP dimensionality reduction, then GMM or AHC clustering into semantic groups.</div>
+      <div class="fb-file">raptor/clustering.py</div>
+    </div>
+    <div class="flow-arrow"><span class="arr-icon">→</span><span class="arr-text">clusters</span></div>
+    <div class="flow-box">
+      <div class="fb-tag" style="color:var(--c1)">3 · SUMMARIZE</div>
+      <div class="fb-name">LLM-Generated Summaries</div>
+      <div class="fb-sub">Each cluster is summarized by an LLM, creating higher-level abstract nodes.</div>
+      <div class="fb-file">raptor/summarization.py</div>
+    </div>
+    <div class="flow-arrow"><span class="arr-icon">→</span><span class="arr-text">tree</span></div>
+    <div class="flow-box">
+      <div class="fb-tag" style="color:var(--green)">4 · RETRIEVE</div>
+      <div class="fb-name">Hierarchical Search</div>
+      <div class="fb-sub">Query across all tree layers — leaves for detail, summaries for theme.</div>
+      <div class="fb-file">raptor/retrieval.py</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECTION: What is RAPTOR? ═══ -->
+<section class="layer-sec">
+  <div class="layer-hdr">
+    <div class="layer-id-badge" style="background:var(--c2d);color:var(--c2)">CONCEPT</div>
+    <div class="layer-title">What is RAPTOR?</div>
+  </div>
+  <div class="layer-def" style="border-color:var(--c2d)">
+    Traditional RAG retrieves only flat text chunks. RAPTOR builds a <strong>multi-layer tree</strong>
+    where LLM-generated summaries sit above clusters of related chunks, letting retrieval
+    operate at the right level of abstraction for each query.
+  </div>
+
+  <div class="tree-vis">
+    <div class="tree-row">
+      <div class="tree-node l2" style="min-width:200px">Root Summary<br>"Full document theme"</div>
+    </div>
+    <div class="tree-connector">│</div>
+    <div class="tree-row" style="gap:24px">
+      <div class="tree-node l1">Layer 1<br>Summary A</div>
+      <div class="tree-node l1">Layer 1<br>Summary B</div>
+    </div>
+    <div class="tree-connector">│</div>
+    <div class="tree-row" style="gap:6px">
+      <div class="tree-node l0">chunk</div><div class="tree-node l0">chunk</div>
+      <div class="tree-node l0">chunk</div><div class="tree-node l0">chunk</div>
+      <div class="tree-node l0">chunk</div>
+    </div>
+  </div>
+
+  <div class="grid3" style="margin-top:24px">
+    <div class="card">
+      <div class="card-title">Multi-Scale Retrieval</div>
+      <ul>
+        <li><strong>Leaf nodes</strong> provide exact details</li>
+        <li><strong>Mid layers</strong> synthesize sections</li>
+        <li><strong>Root node</strong> captures full-document themes</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Key Results</div>
+      <ul>
+        <li><strong>82.6%</strong> accuracy on QuALITY (SOTA)</li>
+        <li><strong>55.7%</strong> F1 on QASPER (SOTA)</li>
+        <li><strong>19.1</strong> METEOR on NarrativeQA (SOTA)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Design Principles</div>
+      <ul>
+        <li>LLM-agnostic — bring your own model</li>
+        <li>Two tree strategies: classic &amp; Psi</li>
+        <li>Soft clustering allows cross-cluster contribution</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECTION: Two Builders ═══ -->
+<section class="layer-sec" id="builders">
+  <div class="layer-hdr">
+    <div class="layer-id-badge" style="background:var(--c1d);color:var(--c1)">STRATEGY</div>
+    <div class="layer-title">Two Tree Builders <small>— swap with one config field</small></div>
+  </div>
+  <div class="layer-def" style="border-color:var(--c1d)">
+    RAPTOR offers two tree-building strategies. The <strong>classic builder</strong> iteratively
+    clusters and summarizes each layer. The <strong>Psi builder</strong> constructs a similarity
+    merge tree in one pass — better for very large corpora.
+  </div>
+
+  <div class="cmp-grid">
+    <div class="cmp-h">Dimension</div>
+    <div class="cmp-h" style="color:var(--c1)">Classic Builder</div>
+    <div class="cmp-h" style="color:var(--c2)">Psi Builder</div>
+
+    <div class="cmp-dim">Method</div>
+    <div class="cmp-c">Iterative: UMAP → cluster → summarize per layer</div>
+    <div class="cmp-c">One-shot similarity merge → layer-by-layer summary</div>
+
+    <div class="cmp-dim">Clustering</div>
+    <div class="cmp-c">GMM (BIC-driven) or AHC (dendrogram-gap)</div>
+    <div class="cmp-c">Cosine-similarity ranking + union-find merge tree</div>
+
+    <div class="cmp-dim">Large corpora</div>
+    <div class="cmp-c">Memory-bound by full-distance GMM</div>
+    <div class="cmp-c">Bucket-and-approximate for &gt; 4096 leaves</div>
+
+    <div class="cmp-dim">LLM calls</div>
+    <div class="cmp-c">Per cluster per layer</div>
+    <div class="cmp-c">Potentially fewer with rebalanced fan-out</div>
+
+    <div class="cmp-dim">Config</div>
+    <div class="cmp-c"><code>tree_builder="classic"</code></div>
+    <div class="cmp-c"><code>tree_builder="psi"</code></div>
+  </div>
+</section>
+
+<!-- ═══ SECTION: Package Structure ═══ -->
+<section class="layer-sec" id="structure">
+  <div class="layer-hdr">
+    <div class="layer-id-badge" style="background:var(--c3d);color:var(--c3)">LAYOUT</div>
+    <div class="layer-title">Package Structure</div>
+  </div>
+  <div class="layer-def" style="border-color:var(--c3d)">
+    CleanRL-inspired organization: each module has a single responsibility.
+    All 12 files parse cleanly with zero lint warnings.
+  </div>
+
+  <div class="file-tree"><span class="dir">raptor/</span>
+  ├── <span class="py">__init__.py</span>            <span class="cmt"># Public API — 7 exports</span>
+  ├── <span class="py">config.py</span>              <span class="cmt"># RAPTORConfig dataclass (all knobs)</span>
+  ├── <span class="py">embedding.py</span>           <span class="cmt"># UMAP dimensionality reduction</span>
+  ├── <span class="py">clustering.py</span>          <span class="cmt"># GMM (BIC) + AHC (dendrogram-gap)</span>
+  ├── <span class="py">tree.py</span>                <span class="cmt"># TreeNode + UnionFind data structures</span>
+  ├── <span class="py">summarization.py</span>       <span class="cmt"># LLM summarization with retry logic</span>
+  ├── <span class="py">retrieval.py</span>           <span class="cmt"># tree_traverse + collapsed_tree</span>
+  ├── <span class="py">utils.py</span>               <span class="cmt"># normalize, truncate, validate</span>
+  └── <span class="dir">builders/</span>
+      ├── <span class="py">classic.py</span>          <span class="cmt"># Iterative clustering builder</span>
+      └── <span class="py">psi.py</span>              <span class="cmt"># Similarity-merge tree builder</span>
+  </div>
+</section>
+
+<!-- ═══ CODE EXAMPLE ═══ -->
+<section class="layer-sec" id="usage">
+  <div class="layer-hdr">
+    <div class="layer-id-badge" style="background:var(--green);color:var(--bg)">QUICKSTART</div>
+    <div class="layer-title">Usage Example</div>
+  </div>
+
+  <div class="codeblock">
+    <div class="cb-head">
+      <span class="cb-dot" style="background:#f85149"></span>
+      <span class="cb-dot" style="background:#e3b341"></span>
+      <span class="cb-dot" style="background:#28c840"></span>
+      basic_usage.py
+    </div>
+    <div class="cb-body"><span class="kw">import</span> <span class="fn">asyncio</span>
+<span class="kw">from</span> raptor <span class="kw">import</span> RAPTORConfig
+<span class="kw">from</span> raptor.builders.classic <span class="kw">import</span> build_tree_classic
+<span class="kw">from</span> raptor.retrieval <span class="kw">import</span> collapsed_tree
+
+<span class="cm"># 1. Configure</span>
+config = RAPTORConfig(
+    max_cluster=<span class="num">5</span>,
+    tree_builder=<span class="str">"classic"</span>,
+    clustering_method=<span class="str">"gmm"</span>,
+)
+
+<span class="cm"># 2. Build tree (pass your LLM & embedder as async callables)</span>
+chunks = [(<span class="str">"text..."</span>, embedding), ...]
+enriched, layers = <span class="kw">await</span> build_tree_classic(
+    chunks, config,
+    llm_chat_fn=your_llm_chat_fn,
+    embed_fn=your_embed_fn,
+)
+
+<span class="cm"># 3. Retrieve</span>
+results = collapsed_tree(
+    query_embedding, layers, enriched, top_k=<span class="num">5</span>,
+)
+<span class="kw">for</span> idx <span class="kw">in</span> results:
+    <span class="fn">print</span>(enriched[idx][<span class="num">0</span>])  <span class="cm"># Retrieved text</span></div>
+  </div>
+</section>
+
+<!-- ═══ INSTALL ═══ -->
+<section class="tran-sec">
+  <div class="tran-inner">
+    <div class="tran-pill" style="background:var(--bg3);color:var(--green)">Installation</div>
+    <div class="tran-h">Get started in 30 seconds</div>
+    <div class="tran-p">RAPTOR depends on numpy, scikit-learn, and umap-learn. LLM and embedding backends are injected as callables — bring your own.</div>
+
+    <div class="install-block">
+      <span class="prompt">$</span> pip install -e .
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install -e .')">Copy</button>
+    </div>
+    <div class="install-block">
+      <span class="prompt">$</span> python examples/basic_usage.py
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('python examples/basic_usage.py')">Copy</button>
+    </div>
+
+    <div class="gate" style="margin-top:16px">
+      <span class="gate-item gi-pass">Python 3.10+</span>
+      <span class="gate-item gi-pass">12 modules · 1.6k LOC</span>
+      <span class="gate-item gi-pass">0 lint warnings</span>
+      <span class="gate-item gi-note">Async-first API</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ BENCHMARKS ═══ -->
+<section class="layer-sec" id="benchmarks">
+  <div class="layer-hdr">
+    <div class="layer-id-badge" style="background:var(--c1d);color:var(--c1)">RESULTS</div>
+    <div class="layer-title">Benchmarks <small>— from the ICLR 2024 paper</small></div>
+  </div>
+
+  <table class="stab">
+    <tr><th>Dataset</th><th>Metric</th><th>Previous SOTA</th><th>RAPTOR + GPT-4</th></tr>
+    <tr>
+      <td>QuALITY</td><td>Accuracy</td>
+      <td>62.3% (CoLISA)</td>
+      <td class="bench-highlight">82.6%</td>
+    </tr>
+    <tr>
+      <td>QuALITY-HARD</td><td>Accuracy</td>
+      <td>54.7% (CoLISA)</td>
+      <td class="bench-highlight">76.2%</td>
+    </tr>
+    <tr>
+      <td>QASPER</td><td>F1 Match</td>
+      <td>53.9% (CoLT5 XL)</td>
+      <td class="bench-highlight">55.7%</td>
+    </tr>
+    <tr>
+      <td>NarrativeQA</td><td>METEOR</td>
+      <td>11.1 (Retriever+Reader)</td>
+      <td class="bench-highlight">19.1</td>
+    </tr>
+  </table>
+
+  <div class="grid3" style="margin-top:24px">
+    <div class="card">
+      <div class="card-title">Controlled Comparison (QASPER F1)</div>
+      <table class="stab" style="margin-top:0">
+        <tr><th>Retriever</th><th>GPT-4 F1</th></tr>
+        <tr><td>BM25</td><td>50.2</td></tr>
+        <tr><td>DPR</td><td>53.0</td></tr>
+        <tr><td class="bench-highlight">RAPTOR</td><td class="bench-highlight">55.7</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Non-Leaf Node Contribution</div>
+      <table class="stab" style="margin-top:0">
+        <tr><th>Dataset</th><th>Non-Leaf %</th></tr>
+        <tr><td>NarrativeQA</td><td>57.4%</td></tr>
+        <tr><td>Quality</td><td>32.3%</td></tr>
+        <tr><td>Qasper</td><td>22.9%</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Efficiency</div>
+      <ul>
+        <li><strong>Linear scaling</strong> in both tokens and build time</li>
+        <li>Tested on Apple M1 with 16GB RAM</li>
+        <li>Up to 78k token documents</li>
+        <li><strong>72%</strong> average compression ratio</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="footer">
+  <p>
+    RAPTOR — ICLR 2024 ·
+    <a href="https://github.com/1998x-stack/raptor" style="color:var(--c2)">github.com/1998x-stack/raptor</a> ·
+    Apache 2.0 License
+  </p>
+</footer>
+
+</div>
+</body>
+</html>
